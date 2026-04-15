@@ -138,12 +138,10 @@
                 <i class="bi bi-chat-fill"></i>
                 <span>Chat</span>
             </a>
-            @if(Auth::user()->role == 'admin')
             <a href="{{ route('users.index') }}" class="activity-item {{ request()->is('users*') ? 'active' : '' }}">
                 <i class="bi bi-people"></i>
                 <span>People</span>
             </a>
-            @endif
             <!-- <a href="#" class="activity-item"><i class="bi bi-calendar-event"></i><span>Meet</span></a> -->
             <div class="mt-auto mb-3">
                 <form action="{{ route('logout') }}" method="POST">@csrf
@@ -153,11 +151,13 @@
         </div>
 
         {{-- Agar URL mein 'users' nahi hai, tabhi ye sidebar dikhao --}}
-        @if(!request()->is('users*'))
+        @if(!request()->is('users*') || (request()->is('users*') && Auth::user()->role !== 'admin'))
         <div class="chat-sidebar">
             <div class="p-3 shadow-sm bg-white d-flex justify-content-between">
-                <h5 class="fw-bold mb-0">Chat</h5>
-                <i class="bi bi-pencil-square"></i>
+                <h5 class="fw-bold mb-0">
+                    {{ request()->is('users*') ? 'People' : 'Chat' }}
+                </h5>
+                <i class="bi {{ request()->is('users*') ? 'bi-search' : 'bi-pencil-square' }}"></i>
             </div>
             <div class="overflow-auto">
                 @yield('sidebar_content')
