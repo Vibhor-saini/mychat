@@ -128,6 +128,14 @@
             margin-right: 12px;
         }
 
+        #chatBox {
+            height: 500px;
+            /* Ya jo bhi aapki requirement ho */
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
         /* //=============== */
         /* Layout ki style tag mein ye check karein */
         .chat-content {
@@ -148,6 +156,7 @@
             height: 100%;
         }
     </style>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
 
