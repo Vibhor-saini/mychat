@@ -14,7 +14,7 @@ Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-    
+
     // Day 2 new routes
     Route::get('/users', [AuthController::class, 'userIndex'])->name('users.index');
     Route::post('/users/create', [AuthController::class, 'userStore'])->name('users.store');

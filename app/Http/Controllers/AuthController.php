@@ -12,7 +12,7 @@ class AuthController extends Controller
 {
     public function showLogin()
     {
-        return view('login');
+        return view('auth.login');
     }
 
     public function login(Request $request)
@@ -44,7 +44,7 @@ class AuthController extends Controller
     public function userIndex()
     {
         $allUsers = User::orderBy('name', 'asc')->get();
-        return view('users_index', compact('allUsers'));
+        return view('admin.users.index', compact('allUsers'));
     }
 
     public function userStore(Request $request)
@@ -71,7 +71,7 @@ class AuthController extends Controller
     public function dashboard()
     {
         // Abhi ke liye sirf view return karte hain
-        return view('dashboard');
+        return view('user.dashboard');
     }
 
 
@@ -87,7 +87,7 @@ class AuthController extends Controller
             $q->where('sender_id', $id)->where('receiver_id', $sender_id);
         })->orderBy('created_at', 'asc')->get();
 
-        return view('dashboard', compact('receiver', 'messages'));
+        return view('user.dashboard', compact('receiver', 'messages'));
     }
 
     public function sendMessage(Request $request)

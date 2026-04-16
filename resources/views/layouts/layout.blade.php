@@ -127,10 +127,32 @@
             color: white;
             margin-right: 12px;
         }
+
+        /* //=============== */
+        /* Layout ki style tag mein ye check karein */
+        .chat-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            /* Full screen height */
+            background-color: #f8f9fa;
+        }
+
+        /* Taaki Livewire ka div bhi poori height le */
+        div[livewire\:id],
+        [wire\:id] {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            height: 100%;
+        }
     </style>
+    @livewireStyles
 </head>
 
 <body>
+
     <div class="wrapper">
         <div class="activity-bar">
             {{-- Chat Icon --}}
@@ -169,6 +191,7 @@
             @yield('content') {{-- Yahan chat messages dikhenge --}}
         </div>
     </div>
+    @livewireScripts
 </body>
 
 </html>

@@ -1,4 +1,4 @@
-@extends('layout')
+@extends('layouts.layout')
 
 {{-- 1. Sidebar Content (Only for Normal User) --}}
 @if(Auth::user()->role !== 'admin')
