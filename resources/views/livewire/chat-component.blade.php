@@ -15,6 +15,19 @@
                 {{ $msg->message }}
                 <div style="font-size: 0.7rem;" class="text-end opacity-75">
                     {{ $msg->created_at->format('h:i A') }}
+
+                    {{-- Blue Tick ya Seen Text sirf mere (sender) messages ke liye --}}
+                    @if($msg->sender_id == Auth::id())
+
+                    @if($msg->read_at)
+                    <i class="bi bi-check2-all text-info" title="Seen at {{ $msg->read_at->format('h:i A') }}"></i>
+                    {{-- bi-check2-all Bootstrap icon hai blue tick ke liye --}}
+                    @else
+                    <i class="bi bi-check2"></i> {{-- Single tick for delivered --}}
+                    @endif
+                    @endif
+
+
                 </div>
             </div>
         </div>

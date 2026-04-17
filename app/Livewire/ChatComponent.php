@@ -1,31 +1,46 @@
 <?php
 
-namespace App\Livewire;
 
+namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
-use App\Events\MessageSent; // <--- Event import karein
+use App\Events\MessageSent; // Isse error chala jayega
+use App\Events\MessageRead;
 
 class ChatComponent extends Component
 {
     public $receiverId;
     public $messageText = '';
 
-    // Ye function batata hai ki Livewire ko kaunsa WebSocket channel sunna hai
     public function getListeners()
     {
         $authId = Auth::id();
         return [
-            // Jab mere ID wale private channel par msg aaye, toh refreshComponent chalao
-            "echo-private:chat.{$authId},MessageSent" => 'refreshComponent',
+            "echo-private:chat.{$authId},MessageSent" => 'handleIncomingMessage',
+            "echo-private:chat.{$authId},MessageRead" => 'refreshComponent',
         ];
+    }
+
+    public function handleIncomingMessage($event)
+    {
+        // Agar main wahi user hoon jisne chat kholi hui hai aur message mujhe aaya hai
+        if ($this->receiverId == $event['message']['sender_id']) {
+            $message = Message::find($event['message']['id']);
+            if ($message && !$message->read_at) {
+                $message->update(['read_at' => now()]);
+                
+                // TRIGGER: Sender ko batana ki message read ho gaya
+                broadcast(new MessageRead(Auth::id(), $this->receiverId))->toOthers();
+            }
+        }
+        $this->refreshComponent();
     }
 
     public function refreshComponent()
     {
-        // Ye function khali rahega, iska call hona hi UI ko refresh kar dega
+        // Livewire re-render trigger
     }
 
     public function mount($receiverId = null)
@@ -43,12 +58,10 @@ class ChatComponent extends Component
             'message' => $this->messageText,
         ]);
 
-        // --- ASLI MAGIC YAHAN HAI ---
-        // Dusre user ko signal bhej rahe hain ki naya msg aaya hai
         broadcast(new MessageSent($message))->toOthers();
 
-        $this->messageText = ''; 
-        $this->dispatch('messageSent'); // Scroll down karne ke liye JS event
+        $this->messageText = '';
+        $this->dispatch('messageSent'); 
     }
 
     public function render()
@@ -58,6 +71,20 @@ class ChatComponent extends Component
 
         if ($this->receiverId) {
             $receiver = User::find($this->receiverId);
+
+            // LOGIC: Check for unread messages sent by the person I'm chatting with
+            $unreadQuery = Message::where('sender_id', $this->receiverId)
+                ->where('receiver_id', Auth::id())
+                ->whereNull('read_at');
+
+            if ($unreadQuery->count() > 0) {
+                $unreadQuery->update(['read_at' => now()]);
+
+                // IMPORTANT: Broadcast 'MessageRead' to the SENDER ($this->receiverId)
+                // Taaki unki screen par Blue Tick turant aa jaye
+                broadcast(new MessageRead(Auth::id(), $this->receiverId))->toOthers();
+            }
+
             $messages = Message::where(function ($q) {
                 $q->where('sender_id', Auth::id())->where('receiver_id', $this->receiverId);
             })->orWhere(function ($q) {

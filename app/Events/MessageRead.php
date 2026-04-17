@@ -2,29 +2,30 @@
 
 namespace App\Events;
 
-use App\Models\Message; 
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class MessageSent implements ShouldBroadcastNow
+class MessageRead implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $message; // Sirf message model rakho
+    public $receiverId; 
+    public $senderId;   
 
-    public function __construct(Message $message) // <--- Object accept karo
+    public function __construct($receiverId, $senderId)
     {
-        $this->message = $message;
+        $this->receiverId = $receiverId;
+        $this->senderId = $senderId;
     }
 
     public function broadcastOn(): array
     {
-        // Signal receiver ke channel par bhejo
+        // Signal hamesha Sender ke channel par jayega taaki wo Blue Tick dekhe
         return [
-            new PrivateChannel('chat.' . $this->message->receiver_id),
+            new PrivateChannel('chat.' . $this->senderId),
         ];
     }
 }
