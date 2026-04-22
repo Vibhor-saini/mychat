@@ -104,8 +104,8 @@ class ChatComponent extends Component
         ]);
 
         if (Auth::id() != $this->receiverId) {
-        broadcast(new MessageSent($message))->toOthers();
-    }
+            broadcast(new MessageSent($message))->toOthers();
+        }
 
         // Reset Typing locally and on Receiver's end instantly
         $this->isTyping = false;
@@ -139,6 +139,7 @@ class ChatComponent extends Component
 
             if ($unreadQuery->count() > 0) {
                 $unreadQuery->update(['read_at' => now()]);
+                $this->dispatch('refresh-sidebar');
 
                 // IMPORTANT: Broadcast 'MessageRead' to the SENDER ($this->receiverId)
                 // Taaki unki screen par Blue Tick turant aa jaye

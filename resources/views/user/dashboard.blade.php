@@ -3,29 +3,34 @@
 
 @section('sidebar_content')
 @persist('sidebar')
-@php 
-    $authId = Auth::id();
-    $users = App\Models\User::orderByRaw('id = ? DESC', [$authId])
-              ->orderBy('name', 'asc')
-              ->get()
-              ->map(function($user) use ($authId) {
-                  // Fetch the absolute latest message between Auth User and this specific $user
-                  $user->latest_msg = App\Models\Message::where(function($q) use ($authId, $user) {
-                      $q->where('sender_id', $authId)->where('receiver_id', $user->id);
-                  })
-                  ->orWhere(function($q) use ($authId, $user) {
-                      $q->where('sender_id', $user->id)->where('receiver_id', $authId);
-                  })
-                  ->latest('id') // ID se sort karna zyada accurate hota hai
-                  ->first();
-                  
-                  return $user;
-              });
+@php
+$authId = Auth::id();
+$users = App\Models\User::orderByRaw('id = ? DESC', [$authId])
+->orderBy('name', 'asc')
+->get()
+->map(function($user) use ($authId) {
+// 1. Latest Message (Existing logic)
+$user->latest_msg = App\Models\Message::where(function($q) use ($authId, $user) {
+$q->where('sender_id', $authId)->where('receiver_id', $user->id);
+})
+->orWhere(function($q) use ($authId, $user) {
+$q->where('sender_id', $user->id)->where('receiver_id', $authId);
+})
+->latest('id')->first();
+
+// 2. NAYA: Unread Count (Wo messages jo mujhe aaye hain aur read nahi hue)
+$user->unread_count = App\Models\Message::where('sender_id', $user->id)
+->where('receiver_id', $authId)
+->whereNull('read_at')
+->count();
+
+return $user;
+});
 @endphp
 @foreach($users as $user)
 <a href="{{ route('chat.start', $user->id) }}" wire:navigate
     class="chat-list-item {{ isset($receiver) && $receiver->id == $user->id ? 'active' : '' }}">
-    
+
     <div class="position-relative">
         <div class="avatar {{ $user->id == Auth::id() ? 'bg-info' : 'bg-secondary' }}">
             {{ strtoupper(substr($user->name, 0, 1)) }}
@@ -39,30 +44,39 @@
     <div class="flex-grow-1 ms-3">
         <div class="d-flex justify-content-between">
             <span class="fw-bold text-dark">
-                {{ $user->name }} 
+                {{ $user->name }}
                 {{-- Add 'You' label for personal chat --}}
                 @if($user->id == Auth::id()) <span class="text-primary small">(You)</span> @endif
             </span>
             <small id="time-{{ $user->id }}" class="text-muted">
                 {{ $user->latest_message ? $user->latest_message->created_at->format('h:i A') : '' }}
             </small>
+
+            {{-- NAYA: Unread Badge --}}
+            <div id="unread-badge-{{ $user->id }}">
+                @if($user->unread_count > 0)
+                <span class="badge rounded-pill bg-success mt-1" style="font-size: 0.7rem;">
+                    {{ $user->unread_count }}
+                </span>
+                @endif
+            </div>
         </div>
-        
+
         {{-- Rest of your sidebar logic (typing-indicator, latest-msg) --}}
         <div id="typing-indicator-{{ $user->id }}" class="text-success small fw-bold d-none">Typing...</div>
-<div id="latest-msg-{{ $user->id }}" class="text-muted small text-truncate">
-    @if($user->latest_msg)
-        {{ $user->latest_msg->sender_id == auth()->id() ? 'You: ' : '' }}
-        {{ $user->latest_msg->message }}
-    @else
-        {{-- Conditional placeholder based on whether it's me or someone else --}}
-        @if($user->id == auth()->id())
+        <div id="latest-msg-{{ $user->id }}" class="text-muted small text-truncate">
+            @if($user->latest_msg)
+            {{ $user->latest_msg->sender_id == auth()->id() ? 'You: ' : '' }}
+            {{ $user->latest_msg->message }}
+            @else
+            {{-- Conditional placeholder based on whether it's me or someone else --}}
+            @if($user->id == auth()->id())
             <span class="fst-italic text-secondary">Message yourself...</span>
-        @else
+            @else
             <span class="fst-italic text-secondary">Start a conversation...</span>
-        @endif
-    @endif
-</div>
+            @endif
+            @endif
+        </div>
     </div>
 </a>
 @endforeach
