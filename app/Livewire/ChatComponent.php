@@ -103,8 +103,13 @@ class ChatComponent extends Component
             'message' => $this->messageText,
         ]);
 
+        if (Auth::id() != $this->receiverId) {
         broadcast(new MessageSent($message))->toOthers();
+    }
 
+        // Reset Typing locally and on Receiver's end instantly
+        $this->isTyping = false;
+        $this->dispatch('typing-received', senderId: Auth::id(), typing: false);
         // NEW: Dispatch event to JS for sidebar update
         $this->dispatch(
             'update-sidebar-text',
@@ -145,6 +150,13 @@ class ChatComponent extends Component
             })->orWhere(function ($q) {
                 $q->where('sender_id', $this->receiverId)->where('receiver_id', Auth::id());
             })->orderBy('created_at', 'asc')->get();
+
+            if (Auth::id() == $this->receiverId) {
+                $messages = Message::where('sender_id', Auth::id())
+                    ->where('receiver_id', Auth::id())
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+            }
         }
 
         return view('livewire.chat-component', [
