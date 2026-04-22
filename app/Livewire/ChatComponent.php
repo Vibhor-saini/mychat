@@ -2,6 +2,8 @@
 
 
 namespace App\Livewire;
+
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use App\Models\Message;
 use App\Models\User;
@@ -11,15 +13,28 @@ use App\Events\MessageRead;
 
 class ChatComponent extends Component
 {
+    #[Url]
     public $receiverId;
     public $messageText = '';
+    public $onlineUsers = [];
+    public $isTyping = false;
 
+    /**
+     * Updated Listeners:
+     * We map the presence channel events to specific PHP methods.
+     */
     public function getListeners()
     {
         $authId = Auth::id();
         return [
             "echo-private:chat.{$authId},MessageSent" => 'handleIncomingMessage',
             "echo-private:chat.{$authId},MessageRead" => 'refreshComponent',
+
+            // Presence Channel Events
+            "echo-presence:chat-presence,here" => 'initOnlineUsers',
+            "echo-presence:chat-presence,joining" => 'userJoined',
+            "echo-presence:chat-presence,leaving" => 'userLeft',
+            "echo-presence:chat-presence,typing" => 'handleTypingIndicator',
         ];
     }
 
@@ -30,13 +45,43 @@ class ChatComponent extends Component
             $message = Message::find($event['message']['id']);
             if ($message && !$message->read_at) {
                 $message->update(['read_at' => now()]);
-                
+
                 // TRIGGER: Sender ko batana ki message read ho gaya
                 broadcast(new MessageRead(Auth::id(), $this->receiverId))->toOthers();
             }
         }
+
+        // NEW: Update sidebar when someone sends ME a message
+        $this->dispatch(
+            'update-sidebar-text',
+            userId: $event['message']['sender_id'],
+            message: $event['message']['message'],
+            isMe: false,
+            time: now()->format('h:i A')
+        );
+
         $this->refreshComponent();
+        $this->dispatch('refresh-sidebar');
     }
+
+    public function handleTypingIndicator($event)
+    {
+        // Check if the typing event is for me
+        if ($event['receiver_id'] == Auth::id()) {
+            // If it's the currently open chat window
+            if ($event['sender_id'] == $this->receiverId) {
+                $this->isTyping = $event['typing'];
+            }
+
+            // Always dispatch to browser for Sidebar update
+            $this->dispatch(
+                'typing-received',
+                senderId: $event['sender_id'],
+                typing: $event['typing']
+            );
+        }
+    }
+
 
     public function refreshComponent()
     {
@@ -60,8 +105,18 @@ class ChatComponent extends Component
 
         broadcast(new MessageSent($message))->toOthers();
 
+        // NEW: Dispatch event to JS for sidebar update
+        $this->dispatch(
+            'update-sidebar-text',
+            userId: $this->receiverId,
+            message: $this->messageText,
+            isMe: true,
+            time: now()->format('h:i A')
+        );
+
         $this->messageText = '';
-        $this->dispatch('messageSent'); 
+        $this->dispatch('messageSent');
+        $this->dispatch('refresh-sidebar');
     }
 
     public function render()
@@ -96,5 +151,37 @@ class ChatComponent extends Component
             'messages' => $messages,
             'receiver' => $receiver
         ]);
+    }
+
+
+    /**
+     * Triggered when you first load the chat.
+     * It receives an array of all users currently online.
+     */
+    public function initOnlineUsers($users)
+    {
+        $this->onlineUsers = collect($users)->pluck('id')->toArray();
+        // Notify the frontend bridge immediately
+        $this->dispatch('online-users-updated', users: $this->onlineUsers);
+    }
+
+    /**
+     * Triggered when a new user opens their browser/app.
+     */
+    public function userJoined($user)
+    {
+        if (!in_array($user['id'], $this->onlineUsers)) {
+            $this->onlineUsers[] = $user['id'];
+            $this->dispatch('online-users-updated', users: $this->onlineUsers);
+        }
+    }
+
+    /**
+     * Triggered when a user closes their tab or logs out.
+     */
+    public function userLeft($user)
+    {
+        $this->onlineUsers = array_diff($this->onlineUsers, [$user['id']]);
+        $this->dispatch('online-users-updated', users: $this->onlineUsers);
     }
 }
