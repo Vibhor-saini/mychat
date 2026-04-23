@@ -62,7 +62,7 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'user' // Hamesha user role hi rahega
+            'role' => 'user' 
         ]);
 
         return back()->with('success', 'User created successfully!');
@@ -70,7 +70,7 @@ class AuthController extends Controller
 
     public function dashboard()
     {
-        // Abhi ke liye sirf view return karte hain
+        
         return view('user.dashboard');
     }
 
