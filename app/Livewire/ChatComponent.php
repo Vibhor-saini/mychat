@@ -49,11 +49,11 @@ class ChatComponent extends Component
                 // TRIGGER: Sender ko batana ki message read ho gaya
                 broadcast(new MessageRead(Auth::id(), $this->receiverId))->toOthers();
             }
+            $this->dispatch('$refresh');
         }
 
         // NEW: Update sidebar when someone sends ME a message
-        $this->dispatch(
-            'update-sidebar-text',
+        $this->dispatch('update-sidebar-text',
             userId: $event['message']['sender_id'],
             message: $event['message']['message'],
             isMe: false,
