@@ -2,35 +2,32 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\Channel;
-use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
-use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
 
-class Typing
+class Typing implements ShouldBroadcastNow
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use SerializesModels;
 
-    /**
-     * Create a new event instance.
-     */
-    public function __construct()
+    public $sender_id;
+    public $receiver_id;
+    public $typing;
+
+    public function __construct($sender_id, $receiver_id, $typing)
     {
-        //
+        $this->sender_id = $sender_id;
+        $this->receiver_id = $receiver_id;
+        $this->typing = $typing;
     }
 
-    /**
-     * Get the channels the event should broadcast on.
-     *
-     * @return array<int, Channel>
-     */
-    public function broadcastOn(): array
+    public function broadcastOn()
     {
-        return [
-            new PrivateChannel('channel-name'),
-        ];
+        return new PresenceChannel('chat-presence');
+    }
+
+    public function broadcastAs()
+    {
+        return 'typing';
     }
 }

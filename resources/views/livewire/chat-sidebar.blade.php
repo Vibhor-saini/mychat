@@ -1,50 +1,75 @@
-<div class="chat-sidebar-list overflow-auto" style="height: calc(100vh - 100px);" id="sidebarList">
+<div class="chat-sidebar-list overflow-auto" style="height: calc(100vh - 100px);">
     @foreach($users as $user)
-    {{-- wire:key is critical for preventing flickers --}}
+    @php
+        $isMe = ($user->id === auth()->id());
+    @endphp
+    
     <a href="{{ route('chat.start', $user->id) }}" wire:navigate 
-       wire:key="sidebar-user-{{ $user->id }}-{{ $user->unread_count }}-{{ isset($typingUsers[$user->id]) }}"
-       class="chat-list-item {{ $receiverId == $user->id ? 'active' : '' }}">
-        
+       wire:key="row-{{ $user->id }}-{{ $user->latest_msg?->id }}-{{ $user->unread_count }}-{{ count($onlineUsers) }}"
+       class="chat-list-item {{ $receiverId == $user->id ? 'active' : '' }} d-flex align-items-center p-3 text-decoration-none border-bottom shadow-sm-hover">
+       
+        {{-- Avatar Section --}}
         <div class="position-relative">
-            <div class="avatar {{ $user->id == auth()->id() ? 'bg-info' : 'bg-secondary' }}">
-                {{ strtoupper(substr($user->name, 0, 1)) }}
+            <div class="avatar {{ $isMe ? 'bg-secondary' : 'bg-primary' }} text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 45px; height: 45px;">
+                @if($user->profile_image)
+                    <img src="{{ asset('storage/'.$user->profile_image) }}" class="rounded-circle w-100 h-100" style="object-fit: cover;">
+                @else
+                    {{ strtoupper(substr($user->name, 0, 1)) }}
+                @endif
             </div>
-            
-            {{-- Green Dot (Online Status) --}}
-            <span class="position-absolute bottom-0 end-0 p-1 border border-2 border-white rounded-circle {{ in_array($user->id, $onlineUsers) ? 'bg-success' : 'bg-secondary' }}"
-                  style="width: 12px; height: 12px; transform: translate(25%, 25%);">
-            </span>
+            {{-- Online Indicator --}}
+            <span class="position-absolute bottom-0 end-0 p-1 border border-2 border-white rounded-circle {{ in_array($user->id, $onlineUsers) ? 'bg-success blink' : 'bg-secondary' }}"
+                  style="width: 12px; height: 12px; transform: translate(20%, 20%);"></span>
         </div>
 
         <div class="flex-grow-1 ms-3 overflow-hidden">
             <div class="d-flex justify-content-between align-items-center">
-                <span class="fw-bold text-truncate text-dark">{{ $user->name }} @if($user->id == auth()->id()) <small class="text-primary">(You)</small> @endif</span>
-                <small class="text-muted" style="font-size: 0.7rem;">
-                    {{ $user->latest_msg ? $user->latest_msg->created_at->format('h:i A') : '' }}
-                </small>
+                {{-- Name + "You" Label --}}
+                <span class="fw-bold text-dark text-truncate">
+                    {{ $user->name }} @if($isMe) <span class="text-muted fw-normal small">(You)</span> @endif
+                </span>
+                
+                @if($user->latest_msg)
+                    <small class="text-muted" style="font-size: 0.7rem;">
+                        {{ $user->latest_msg->created_at->format('h:i A') }}
+                    </small>
+                @endif
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mt-1">
-                <div class="text-truncate flex-grow-1">
-                    {{-- 1. TYPING INDICATOR FIX --}}
-                    @if(isset($typingUsers[$user->id]) && $typingUsers[$user->id])
-                        <span class="text-success small fw-bold">Typing...</span>
+            <div class="d-flex justify-content-between align-items-center">
+                {{-- Message Preview and Ticks --}}
+                <div class="text-truncate flex-grow-1 pe-2">
+                    @if(isset($typingUsers[$user->id]))
+                        <span class="text-success small fw-bold italic">Typing...</span>
                     @else
-                        <span class="text-muted small">
-                            {{-- Ticks Logic --}}
-                            @if($user->latest_msg && $user->latest_msg->sender_id == auth()->id())
-                                @if($user->latest_msg->read_at) <i class="bi bi-check2-all text-info"></i>
-                                @elseif($user->latest_msg->delivered_at) <i class="bi bi-check2-all"></i>
-                                @else <i class="bi bi-check2"></i> @endif
+                        <span class="text-muted small d-flex align-items-center">
+                            @if($user->latest_msg)
+                                {{-- Professional Ticks Logic --}}
+                                @if($user->latest_msg->sender_id == auth()->id())
+                                    <span class="me-1">
+                                        @if($user->latest_msg->read_at || $isMe)
+                                            {{-- Blue Ticks --}}
+                                            <i class="bi bi-check2-all text-info"></i>
+                                        @elseif($user->latest_msg->delivered_at)
+                                            {{-- Double Grey Ticks --}}
+                                            <i class="bi bi-check2-all"></i>
+                                        @else
+                                            {{-- Single Grey Tick --}}
+                                            <i class="bi bi-check2"></i>
+                                        @endif
+                                    </span>
+                                @endif
+                                {{ Str::limit($user->latest_msg->message, 25) }}
+                            @else
+                                <span class="fst-italic opacity-75">No messages yet</span>
                             @endif
-                            {{ $user->latest_msg->message ?? 'No messages yet' }}
                         </span>
                     @endif
                 </div>
 
-                {{-- 2. BADGE FIX (Logic in Component handles if chat is open) --}}
-                @if($user->unread_count > 0 && $receiverId != $user->id)
-                    <span class="badge rounded-pill bg-success ms-2" style="font-size: 0.7rem;">
+                {{-- Unread Badge --}}
+                @if($user->unread_count > 0 && !$isMe)
+                    <span class="badge rounded-pill bg-success shadow-sm" style="font-size: 0.65rem;">
                         {{ $user->unread_count }}
                     </span>
                 @endif
@@ -54,19 +79,10 @@
     @endforeach
 </div>
 
-<script>
-    document.addEventListener('livewire:init', () => {
-        // Echo se typing event pakadne ke liye
-        window.Echo.join('chat-presence')
-            .listen('.typing', (e) => {
-                // Sidebar refresh trigger karo typing status update karne ke liye
-                Livewire.dispatch('refreshSidebar');
-            });
-
-        // Naya message aane par sidebar refresh
-        window.Echo.private('chat.' + {{ auth()->id() }})
-            .listen('MessageSent', (e) => {
-                Livewire.dispatch('refreshSidebar');
-            });
-    });
-</script>
+<style>
+    .chat-list-item:hover { background-color: #f8f9fa; transition: 0.2s; }
+    .chat-list-item.active { background-color: #e9ecef; border-left: 4px solid #0d6efd; }
+    .blink { animation: blinker 1.5s linear infinite; } 
+    @keyframes blinker { 50% { opacity: 0.4; } }
+    .italic { font-style: italic; }
+</style>

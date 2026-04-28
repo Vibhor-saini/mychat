@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use App\Events\MessageSent;
 use App\Events\MessageRead;
-use App\Events\Typing;
 
 class ChatComponent extends Component
 {
@@ -17,93 +16,82 @@ class ChatComponent extends Component
     public $receiverId;
     public $messageText = '';
     public $isTyping = false;
+    public $onlineUsers = [];
+
+    protected $listeners = ['typing-received' => 'handleWhisperTyping', 'scroll-bottom' => '$refresh', 'online-users-updated' => 'updateOnlineStatus'];
 
     public function getListeners()
     {
         $authId = Auth::id();
-        return [
+        return array_merge($this->listeners, [
             "echo-private:chat.{$authId},MessageSent" => 'handleIncomingMessage',
             "echo-private:chat.{$authId},MessageRead" => '$refresh',
-            "echo-presence:chat-presence,typing" => 'handleTypingIndicator',
-        ];
+        ]);
     }
 
-    public function mount($receiverId = null)
-    {
-        $this->receiverId = $receiverId;
-        $this->markAsRead();
-    }
-    public function updatedReceiverId()
-    {
-        $this->markAsRead();
+    public function updateOnlineStatus($users) { $this->onlineUsers = $users; }
+
+public function mount($receiverId = null) { 
+    $this->receiverId = $receiverId; 
+    
+    // Sidebar ko active user id bhejo taaki badge na dikhe
+    $this->dispatch('update-receiver', id: $receiverId)->to(ChatSidebar::class);
+
+    $this->markAsDelivered();
+    $this->markAsRead(); 
+}
+
+    public function markAsDelivered() {
+        if ($this->receiverId) {
+            Message::where('sender_id', $this->receiverId)->where('receiver_id', Auth::id())->whereNull('delivered_at')->update(['delivered_at' => now()]);
+        }
     }
 
-    public function markAsRead()
-    {
+    public function markAsRead() {
         if (!$this->receiverId) return;
         $unread = Message::where('sender_id', $this->receiverId)->where('receiver_id', Auth::id())->whereNull('read_at');
         if ($unread->exists()) {
-            $unread->update(['read_at' => now()]);
+            $unread->update(['read_at' => now(), 'delivered_at' => now()]);
             broadcast(new MessageRead(Auth::id(), $this->receiverId))->toOthers();
-            $this->dispatch('refreshSidebar')->to(\App\Livewire\ChatSidebar::class);
+            $this->dispatch('refreshSidebar')->to(ChatSidebar::class);
         }
     }
 
-    public function handleIncomingMessage($event)
-    {
-        if ($this->receiverId == $event['message']['sender_id']) {
-            $this->markAsRead();
-        } else {
-            $this->dispatch('refreshSidebar')->to(\App\Livewire\ChatSidebar::class);
-        }
-        $this->dispatch('$refresh');
+    public function handleIncomingMessage($event) {
+        if ($this->receiverId == $event['message']['sender_id']) { $this->markAsRead(); }
+        $this->dispatch('refreshSidebar')->to(ChatSidebar::class);
         $this->dispatch('scroll-bottom');
-
-        $this->dispatch('refreshSidebar'); // Global browser event
-        $this->dispatch('$refresh');       // Local chat refresh
-
     }
 
-    public function updatedMessageText()
-    {
-        if (!$this->receiverId) return;
-        broadcast(new Typing(Auth::id(), $this->receiverId, !empty($this->messageText)))->toOthers();
-    }
-
-    public function handleTypingIndicator($event)
-    {
-        if ($event['receiver_id'] == Auth::id() && $event['sender_id'] == $this->receiverId) {
-            $this->isTyping = (bool) $event['typing'];
+    public function handleWhisperTyping($data) {
+        $payload = $data['data'] ?? $data;
+        if ($payload['receiver_id'] == Auth::id() && $payload['sender_id'] == $this->receiverId) {
+            $this->isTyping = $payload['typing'];
         }
     }
 
-    public function sendMessage()
-    {
+    public function sendMessage() {
         if (empty(trim($this->messageText))) return;
-        $message = Message::create(['sender_id' => Auth::id(), 'receiver_id' => $this->receiverId, 'message' => $this->messageText]);
-        broadcast(new MessageSent($message))->toOthers();
-        broadcast(new Typing(Auth::id(), $this->receiverId, false))->toOthers();
-        $this->messageText = '';
-        $this->dispatch('$refresh');
-        $this->dispatch('refreshSidebar')->to(\App\Livewire\ChatSidebar::class);
-        $this->dispatch('scroll-bottom');
+        $authId = Auth::id();
+        $data = ['sender_id' => $authId, 'receiver_id' => $this->receiverId, 'message' => $this->messageText];
+        
+        if ($authId == $this->receiverId) { $data['delivered_at'] = now(); $data['read_at'] = now(); }
+        elseif (in_array($this->receiverId, $this->onlineUsers)) { $data['delivered_at'] = now(); }
 
-        $this->dispatch('refreshSidebar'); // Global browser event
-        $this->dispatch('$refresh');       // Local chat refresh
+        $message = Message::create($data);
+        broadcast(new MessageSent($message))->toOthers();
+        $this->messageText = '';
+        $this->isTyping = false;    
+        $this->dispatch('refreshSidebar')->to(ChatSidebar::class);
+        $this->dispatch('scroll-bottom');
     }
 
-    public function render()
-    {
+    public function render() {
         $messages = [];
-        $receiver = null;
-        if ($this->receiverId) {
-            $receiver = User::find($this->receiverId);
-            $messages = Message::where(function ($q) {
-                $q->where('sender_id', Auth::id())->where('receiver_id', $this->receiverId);
-            })
-                ->orWhere(function ($q) {
-                    $q->where('sender_id', $this->receiverId)->where('receiver_id', Auth::id());
-                })
+        $receiver = $this->receiverId ? User::find($this->receiverId) : null;
+        if ($receiver) {
+            $messages = Message::where(fn($q) => $q->where('sender_id', Auth::id())->where('receiver_id', $this->receiverId))
+                ->orWhere(fn($q) => $q->where('sender_id', $this->receiverId)->where('receiver_id', Auth::id()))
                 ->orderBy('created_at', 'asc')->get();
         }
         return view('livewire.chat-component', compact('messages', 'receiver'));
