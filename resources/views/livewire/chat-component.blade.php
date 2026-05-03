@@ -2,11 +2,12 @@
     x-data="{ 
         onlineUsers: window.onlineUsersList || [], 
         isOnline: false,
+        {{-- Function jo bina kisi delay ke scroll karega --}}
         scrollToBottom() { 
             const el = document.getElementById('chatBox'); 
             if (el) el.scrollTop = el.scrollHeight; 
         },
-        {{-- Naya Observer Logic: Jo naye message ko aate hi settle karega --}}
+        {{-- MutationObserver: Jo naye message ke aate hi micro-second mein niche settle karega --}}
         initChatObserver() {
             const el = document.getElementById('chatBox');
             if (el) {
@@ -16,12 +17,13 @@
             }
         }
     }"
-    {{-- Header functionality untouched --}}
+    {{-- Header ki online functionality untouched rahegi --}}
     x-init="initChatObserver(); isOnline = onlineUsers.includes({{ $receiver->id ?? 0 }});"
-    x-on:online-users-updated.window="onlineUsers = $event.detail.users; window.onlineUsersList = onlineUsers; isOnline = onlineUsers.includes({{ $receiver->id ?? 0 }});"
+    x-on:online-users-updated.window="onlineUsers = $event.detail.users; window.onlineUsersList = onlineUsers; isOnline = o nlineUsers.includes({{ $receiver->id ?? 0 }});"
     
+    {{-- Livewire events handle karne ke liye --}}
     x-on:scroll-bottom.window="scrollToBottom()"
-    x-on:msg-sent.window="scrollToBottom()">
+    x-on:msg-sent.window="scrollToBottom()">    
     @if($receiver)
     {{-- Header Section --}}
     <div class="chat-header p-3 border-bottom bg-white d-flex align-items-center shadow-sm">
