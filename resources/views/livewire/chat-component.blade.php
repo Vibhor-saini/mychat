@@ -216,7 +216,7 @@
         window.addEventListener('user-typing', () => {
             channel.whisper('typing', {
                 sender_id: {{ auth()->id() }},
-                receiver_id: {{ $receiver->id }},
+                receiver_id: {{ $receiver->id ?? 0}},
                 typing: true
             });
         });
