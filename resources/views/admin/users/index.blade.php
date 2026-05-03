@@ -132,9 +132,7 @@
                                     @php
                                         $colors = ['#6264a7', '#2da3ba', '#f29b11', '#e84c3d', '#27ae60'];
                                         $bg = $colors[$u->id % count($colors)];
-                                        // Logic: Online if user is currently the logged-in user 
-                                        // Note: In Day 10, we will replace this with real-time Cache/Presence logic
-                                        $isOnline = (Auth::id() == $u->id); 
+                                        $isOnline = Cache::has('user-is-online-' . $u->id); 
                                     @endphp
                                     <div class="avatar-initials me-3 shadow-sm" style="background-color: {{ $bg }};">
                                         {{ strtoupper(substr($u->name, 0, 1)) }}
@@ -175,3 +173,4 @@
         </div>
     @endif
 @endsection
+

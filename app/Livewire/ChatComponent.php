@@ -70,21 +70,59 @@ public function mount($receiverId = null) {
         }
     }
 
-    public function sendMessage() {
-        if (empty(trim($this->messageText))) return;
-        $authId = Auth::id();
-        $data = ['sender_id' => $authId, 'receiver_id' => $this->receiverId, 'message' => $this->messageText];
+    // public function sendMessage() {
+    //     if (empty(trim($this->messageText))) return;
+    //     $authId = Auth::id();
+    //     $data = ['sender_id' => $authId, 'receiver_id' => $this->receiverId, 'message' => $this->messageText];
         
-        if ($authId == $this->receiverId) { $data['delivered_at'] = now(); $data['read_at'] = now(); }
-        elseif (in_array($this->receiverId, $this->onlineUsers)) { $data['delivered_at'] = now(); }
+    //     if ($authId == $this->receiverId) { $data['delivered_at'] = now(); $data['read_at'] = now(); }
+    //     elseif (in_array($this->receiverId, $this->onlineUsers)) { $data['delivered_at'] = now(); }
 
-        $message = Message::create($data);
-        broadcast(new MessageSent($message))->toOthers();
-        $this->messageText = '';
-        $this->isTyping = false;    
-        $this->dispatch('refreshSidebar')->to(ChatSidebar::class);
-        $this->dispatch('scroll-bottom');
+    //     $message = Message::create($data);
+    //     broadcast(new MessageSent($message))->toOthers();
+    //     $this->messageText = '';
+    //     $this->isTyping = false;    
+    //     $this->dispatch('scroll-bottom');
+    //     $this->dispatch('refreshSidebar')->to(ChatSidebar::class);
+    // }
+
+    public function sendMessage() {
+    if (empty(trim($this->messageText))) return;
+
+    $authId = Auth::id();
+    
+    // 1. Text ko variable mein lo aur input ko TURANT khali karo
+    // Isse user ko lagega message chala gaya, backend piche chalta rahega
+    $text = $this->messageText;
+    $this->messageText = ''; 
+    $this->isTyping = false;
+
+    // 2. Data prepare karo
+    $data = [
+        'sender_id' => $authId, 
+        'receiver_id' => $this->receiverId, 
+        'message' => $text // variable use karo
+    ];
+    
+    // Delivered/Read logic
+    if ($authId == $this->receiverId) { 
+        $data['delivered_at'] = now(); 
+        $data['read_at'] = now(); 
+    } elseif (in_array($this->receiverId, $this->onlineUsers)) { 
+        $data['delivered_at'] = now(); 
     }
+
+    // 3. Database operation
+    $message = Message::create($data);
+
+    // 4. Broadcast (Ensure MessageSent implements ShouldBroadcastNow)
+    broadcast(new MessageSent($message))->toOthers();
+    
+    // 5. UI Updates
+    $this->dispatch('msg-sent');
+    $this->dispatch('scroll-bottom');
+    $this->dispatch('refreshSidebar')->to(ChatSidebar::class);
+}
 
     public function render() {
         $messages = [];
