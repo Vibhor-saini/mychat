@@ -14,6 +14,7 @@ class ChatComponent extends Component
 {
     #[Url]
     public $receiverId;
+    public $receiver;
     public $messageText = '';
     public $isTyping = false;
     public $onlineUsers = [];
@@ -31,15 +32,31 @@ class ChatComponent extends Component
 
     public function updateOnlineStatus($users) { $this->onlineUsers = $users; }
 
-public function mount($receiverId = null) { 
-    $this->receiverId = $receiverId; 
+// public function mount($receiverId = null) { 
+//     $this->receiverId = (int) $receiverId; 
     
-    // Sidebar ko active user id bhejo taaki badge na dikhe
-    $this->dispatch('update-receiver', id: $receiverId)->to(ChatSidebar::class);
+//     // Sidebar ko active user id bhejo taaki badge na dikhe
+//     $this->dispatch('update-receiver', id: $receiverId)->to(ChatSidebar::class);
+
+//     $this->markAsDelivered();
+//     $this->markAsRead(); 
+// }
+
+// mount() function ko replace karo isse:
+public function mount($receiverId = null) 
+{ 
+    $this->receiverId = $receiverId ? (int) $receiverId : null; 
+    
+    if ($this->receiverId) {
+        $this->receiver = \App\Models\User::find($this->receiverId);
+    }
+
+    // Sidebar ko batane ke liye ki ab active ye hai
+    $this->dispatch('update-receiver', id: $this->receiverId)->to(ChatSidebar::class);
 
     $this->markAsDelivered();
     $this->markAsRead(); 
-}
+}   
 
     public function markAsDelivered() {
         if ($this->receiverId) {

@@ -177,58 +177,51 @@
     overflow-anchor: auto !important;
 }
     </style>
-
 <script>
     document.addEventListener('livewire:init', () => {
         let channel = Echo.join('chat-presence');
-        window.typingTimer = null;
-
-        // Function jo sirf scroll position ko end par set karega bina kisi animation ke
+        
         const lockToBottom = () => {
             const container = document.getElementById('chatBox');
-            if (container) {
-                // Bina scrollTo use kiye seedha height set karo
-                container.scrollTop = container.scrollHeight;
-            }
+            if (container) container.scrollTop = container.scrollHeight;
         };
 
-        // Page load par seedha bottom par le jao
         lockToBottom();
 
-        // 1. Typing Logic (Sirf typing received par UI update karo, scroll nahi)
         channel.listenForWhisper('typing', (e) => {
             Livewire.dispatch('typing-received', { data: e });
-            // Typing indicator aane par jhatka na lage isliye scroll trigger mat karo
         });
 
-        // 2. Real-time Message reception
-        channel.listen('MessageSent', (e) => {
-            // CSS (overflow-anchor) khud hi message ko niche rakhega
-            // Hum bas ek chota sa check rakhenge
-            setTimeout(lockToBottom, 10); 
-        });
-
-        // Jab aap khud message bhejo (Livewire events)
-        window.addEventListener('scroll-bottom', lockToBottom);
-        window.addEventListener('msg-sent', lockToBottom);
-
-        // Typing setup
+        // CRITICAL FIX: Direct component property se ID uthana
         window.addEventListener('user-typing', () => {
-            channel.whisper('typing', {
-                sender_id: {{ auth()->id() }},
-                receiver_id: {{ $receiver->id ?? 0}},
-                typing: true
-            });
+            // Livewire component ki current state se fresh ID lena
+            let component = Livewire.find(document.getElementById('msgInput').closest('[wire\\:id]').getAttribute('wire:id'));
+            let activeReceiverId = component.receiverId; 
+
+            if (activeReceiverId) {
+                channel.whisper('typing', {
+                    sender_id: {{ auth()->id() }},
+                    receiver_id: activeReceiverId,
+                    typing: true
+                });
+            }
         });
 
         window.addEventListener('user-stopped-typing', () => {
-            if (window.typingTimer) clearTimeout(window.typingTimer);
-            channel.whisper('typing', {
-                sender_id: {{ auth()->id() }},
-                receiver_id: {{ $receiverId ?? 0 }},
-                typing: false
-            });
+            let component = Livewire.find(document.getElementById('msgInput').closest('[wire\\:id]').getAttribute('wire:id'));
+            let activeReceiverId = component.receiverId;
+
+            if (activeReceiverId) {
+                channel.whisper('typing', {
+                    sender_id: {{ auth()->id() }},
+                    receiver_id: activeReceiverId,
+                    typing: false
+                });
+            }
         });
+
+        window.addEventListener('scroll-bottom', lockToBottom);
+        window.addEventListener('msg-sent', lockToBottom);
     });
 </script>
 </div>

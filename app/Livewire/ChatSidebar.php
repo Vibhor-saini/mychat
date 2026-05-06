@@ -30,23 +30,24 @@ class ChatSidebar extends Component
 
     public function setReceiverId($id)
     {
-        $this->receiverId = $id;
+        $this->receiverId = (int) $id;
         $this->render(); // Force refresh to apply unread logic
     }
 
-    public function handleWhisperTyping($data)
-    {
-        $senderId = $data['data']['sender_id'] ?? $data['sender_id'];
-        $receiverId = $data['data']['receiver_id'] ?? $data['receiver_id'];
+ public function handleWhisperTyping($data)
+{
+    $senderId = $data['data']['sender_id'] ?? $data['sender_id'];
+    $receiverId = $data['data']['receiver_id'] ?? $data['receiver_id'];
 
-        if ($receiverId == Auth::id()) {
-            if ($data['data']['typing'] ?? $data['typing']) {
-                $this->typingUsers[$senderId] = true;
-            } else {
-                unset($this->typingUsers[$senderId]);
-            }
+    // Strict comparison with (int) casting
+    if ((int)$receiverId === (int)Auth::id()) {
+        if ($data['data']['typing'] ?? $data['typing']) {
+            $this->typingUsers[$senderId] = true;
+        } else {
+            unset($this->typingUsers[$senderId]);
         }
     }
+}
 
     public function setOnlineUsers($users)
     {
