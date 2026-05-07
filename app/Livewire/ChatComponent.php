@@ -19,7 +19,8 @@ class ChatComponent extends Component
     public $isTyping = false;
     public $onlineUsers = [];
 
-    protected $listeners = ['typing-received' => 'handleWhisperTyping', 'scroll-bottom' => '$refresh', 'online-users-updated' => 'updateOnlineStatus'];
+    protected $listeners = ['typing-received' => 'handleWhisperTyping', 'scroll-bottom' => '$refresh', 'online-users-updated' => 'updateOnlineStatus', 'status-updated' => '$refresh',
+    'profile-updated' => '$refresh'];
 
     public function getListeners()
     {

@@ -13,6 +13,10 @@ class ChatSidebar extends Component
     public $typingUsers = [];
     public $onlineUsers = [];
 
+    // Sidebar Component PHP mein dalo
+    protected $listeners = ['status-updated' => '$refresh', 'profile-updated' => '$refresh'];
+
+
     public function getListeners()
     {
         $authId = Auth::id();
@@ -24,7 +28,10 @@ class ChatSidebar extends Component
             "echo-presence:chat-presence,leaving" => 'userLeft',
             'refreshSidebar' => '$refresh',
             'typing-received' => 'handleWhisperTyping',
-            'update-receiver' => 'setReceiverId'
+            'update-receiver' => 'setReceiverId',
+
+            'status-updated' => '$refresh',
+            'profile-updated' => '$refresh'
         ];
     }
 
@@ -34,20 +41,20 @@ class ChatSidebar extends Component
         $this->render(); // Force refresh to apply unread logic
     }
 
- public function handleWhisperTyping($data)
-{
-    $senderId = $data['data']['sender_id'] ?? $data['sender_id'];
-    $receiverId = $data['data']['receiver_id'] ?? $data['receiver_id'];
+    public function handleWhisperTyping($data)
+    {
+        $senderId = $data['data']['sender_id'] ?? $data['sender_id'];
+        $receiverId = $data['data']['receiver_id'] ?? $data['receiver_id'];
 
-    // Strict comparison with (int) casting
-    if ((int)$receiverId === (int)Auth::id()) {
-        if ($data['data']['typing'] ?? $data['typing']) {
-            $this->typingUsers[$senderId] = true;
-        } else {
-            unset($this->typingUsers[$senderId]);
+        // Strict comparison with (int) casting
+        if ((int)$receiverId === (int)Auth::id()) {
+            if ($data['data']['typing'] ?? $data['typing']) {
+                $this->typingUsers[$senderId] = true;
+            } else {
+                unset($this->typingUsers[$senderId]);
+            }
         }
     }
-}
 
     public function setOnlineUsers($users)
     {
